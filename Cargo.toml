@@ -14,3 +14,4 @@ rand_core = { version = "0.6", features = ["std"] }
 anyhow = "1.0.89"
 sha2 = "0.10.8"
 clap = { version = "4.5.19", features = ["derive"] }
+colored = "2.1.0"
