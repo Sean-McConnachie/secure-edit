@@ -2,6 +2,7 @@ use super::secure;
 use super::{SALT_BYTES, SECURE_EDIT_DIR, SECURE_FILE_EXT};
 use anyhow::{anyhow, Result};
 use clap::Parser;
+use colored::Colorize;
 use std::path::PathBuf;
 use std::{fs, process};
 
@@ -14,28 +15,27 @@ pub struct Args {
     pub dir: Option<PathBuf>,
 }
 
-fn write_message(message: &str) -> Result<()> {
+fn user_input(message: &str, align: Option<usize>) -> Result<String> {
     use std::io::{self, Write};
-    io::stdout().write_all(message.as_bytes())?;
-    Ok(())
-}
-
-fn should_proceed(message: &str) -> Result<bool> {
-    use std::io::{self, Write};
-    print!("{} (y/n): ", message);
-    io::stdout().flush()?;
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-    Ok(input.trim().to_lowercase() == "y")
-}
-
-fn user_input(message: &str) -> Result<String> {
-    use std::io::{self, Write};
-    print!("{} > ", message);
+    print!("{message}");
+    if let Some(pad) = align {
+        print!("{:width$}", " ", width = pad);
+    }
+    print!("{}", " > ".blink().purple());
     io::stdout().flush()?;
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
     Ok(input.trim().to_string())
+}
+
+fn should_proceed(message: &str) -> Result<bool> {
+    Ok(user_input(
+        &format!("{} ({}/{})", message, "y".green(), "n".red()),
+        None,
+    )?
+    .trim()
+    .to_lowercase()
+        == "y")
 }
 
 pub fn run(args: Args) -> anyhow::Result<()> {
@@ -44,10 +44,12 @@ pub fn run(args: Args) -> anyhow::Result<()> {
         edit_secure_dir(&dir)?;
     } else {
         if !should_proceed(&format!(
-            "Create secure edit directory in `{}`?",
-            dir.display()
+            "{} `{}`{}",
+            "Create secure edit directory in".bold().blue(),
+            dir.display().to_string().italic(),
+            "?".bold().blue()
         ))? {
-            write_message("Goodbye!\n")?;
+            println!("{}\n", "Goodbye!".bold().italic().blue());
             return Ok(());
         }
         create_secure_dir(&dir)?;
@@ -71,16 +73,17 @@ fn secure_file_fp(dir: &PathBuf, version: Version) -> PathBuf {
 }
 
 fn create_secure_dir(dir: &PathBuf) -> Result<()> {
-    write_message("Creating secure edit directory\n")?;
+    println!("{}", "Creating secure edit directory".green());
     if !dir.exists() {
         fs::create_dir(&dir)?;
     }
     let secure_edit_fp = dir.join(SECURE_EDIT_DIR);
     fs::write(&secure_edit_fp, "")?;
-    write_message(&format!(
-        "Secure edit directory created at `{}`\n",
-        secure_edit_fp.display()
-    ))?;
+    println!(
+        "{} `{}`",
+        "Secure edit directory created at".green().bold(),
+        secure_edit_fp.display().to_string().italic()
+    );
     let new_secure_version = create_secure_file(&dir)?;
     edit_secure_file(
         &secure_file_fp(dir, new_secure_version),
@@ -90,7 +93,7 @@ fn create_secure_dir(dir: &PathBuf) -> Result<()> {
 }
 
 fn edit_secure_dir(dir: &PathBuf) -> Result<()> {
-    write_message("Editing secure directory\n")?;
+    println!("{}", "Editing secure directory".green());
     let mut secure_files = Vec::new();
     for entry in dir.read_dir()? {
         let entry = entry?;
@@ -116,11 +119,15 @@ fn edit_secure_dir(dir: &PathBuf) -> Result<()> {
 }
 
 fn create_secure_file(dir: &PathBuf) -> Result<Version> {
-    write_message("No secure files found. Creating one now!\n")?;
+    println!(
+        "{} {}",
+        "No secure files found.".yellow(),
+        "Creating secure file".green()
+    );
     let version = 0;
     let secure_fp = secure_file_fp(dir, version);
-    let pwd1 = user_input("Enter password")?;
-    let pwd2 = user_input("Re-enter password")?;
+    let pwd1 = user_input(&format!("{}", "Enter password".blue().bold()), Some(3))?;
+    let pwd2 = user_input(&format!("{}", "Re-enter password".blue().bold()), None)?;
     if pwd1 != pwd2 {
         return Err(anyhow!("Passwords do not match"));
     }
@@ -132,8 +139,12 @@ fn create_secure_file(dir: &PathBuf) -> Result<Version> {
 
 fn edit_secure_file(open_fp: &PathBuf, write_fp: &PathBuf) -> Result<()> {
     use std::io::Write;
-    write_message(&format!("Editing secure file at `{}`\n", open_fp.display()))?;
-    let pwd = user_input("Enter password")?;
+    println!(
+        "{} `{}`",
+        "Opening secure file".green(),
+        open_fp.display().to_string().italic()
+    );
+    let pwd = user_input(&format!("{}", "Enter password".blue().bold()), None)?;
     let data = fs::read(open_fp)?;
     let decrypted_data = secure::decrypt_data_formatted(&pwd, &data)?;
 
@@ -148,10 +159,11 @@ fn edit_secure_file(open_fp: &PathBuf, write_fp: &PathBuf) -> Result<()> {
         return Err(anyhow!("Failed to edit file"));
     }
 
-    write_message(&format!(
-        "Saving new secure file at `{}`\n",
-        write_fp.display()
-    ))?;
+    println!(
+        "{} `{}`",
+        "Saving new secure file at".bold().green(),
+        write_fp.display().to_string().italic()
+    );
     let new_data = output.stdout;
     let encrypted_data = secure::encrypt_data_formatted(&pwd, &data[..SALT_BYTES], &new_data)?;
     fs::write(write_fp, &encrypted_data)?;
