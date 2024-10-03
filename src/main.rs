@@ -1,10 +1,7 @@
-use std::{fs, path::PathBuf};
-
 /// File format:
 /// ```
 /// <[Salt; 128]><[Blocks]>
 /// ```
-use anyhow::Result;
 use clap::Parser;
 
 const SECURE_EDIT_DIR: &str = ".secure_edit";

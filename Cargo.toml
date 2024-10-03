@@ -2,6 +2,10 @@
 name = "secure-edit"
 version = "0.1.0"
 edition = "2021"
+authors = ["Sean McConnachie <seanjulian.mcc@gmail.com>"]
+description = "Simple file encryption cli with versioning."
+license = "GPL-3.0"
+repository = "https://github.com/Sean-McConnachie/secure-edit"
 
 [dependencies]
 aes = "0.8.1"
