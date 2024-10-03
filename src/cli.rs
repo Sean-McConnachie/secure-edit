@@ -13,6 +13,8 @@ type Version = u32;
 pub struct Args {
     #[arg(short, long)]
     pub dir: Option<PathBuf>,
+    #[arg(short, long)]
+    pub version: Option<Version>,
 }
 
 fn user_input(message: &str, align: Option<usize>, sensitive: bool) -> Result<String> {
@@ -46,7 +48,7 @@ fn should_proceed(message: &str) -> Result<bool> {
 pub fn run(args: Args) -> anyhow::Result<()> {
     let dir = args.dir.unwrap_or_else(|| PathBuf::from("."));
     if is_secure_edit_dir(&dir)? {
-        edit_secure_dir(&dir)?;
+        edit_secure_dir(&dir, args.version)?;
     } else {
         if !should_proceed(&format!(
             "{} `{}`{}",
@@ -97,7 +99,7 @@ fn create_secure_dir(dir: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn edit_secure_dir(dir: &PathBuf) -> Result<()> {
+fn edit_secure_dir(dir: &PathBuf, version: Option<Version>) -> Result<()> {
     println!("{}", "Editing secure directory".green());
     let mut secure_files = Vec::new();
     for entry in dir.read_dir()? {
@@ -116,8 +118,9 @@ fn edit_secure_dir(dir: &PathBuf) -> Result<()> {
         secure_files.push(new_secure_version);
     }
     let latest_version = *secure_files.last().unwrap();
+    let open_version = version.unwrap_or(latest_version);
     edit_secure_file(
-        &secure_file_fp(dir, latest_version),
+        &secure_file_fp(dir, open_version),
         &secure_file_fp(dir, latest_version + 1),
     )?;
     Ok(())
@@ -157,9 +160,24 @@ fn edit_secure_file(open_fp: &PathBuf, write_fp: &PathBuf) -> Result<()> {
         "Opening secure file".green(),
         open_fp.display().to_string().italic()
     );
+
+    if !open_fp.exists() {
+        return Err(anyhow!(
+            "Secure file to read at `{}` does not exist",
+            open_fp.display()
+        ));
+    }
+    if write_fp.exists() {
+        return Err(anyhow!(
+            "Secure file to write at `{}` already exists",
+            write_fp.display()
+        ));
+    }
+
     let pwd = user_input(&format!("{}", "Enter password".blue().bold()), None, true)?;
     let data = fs::read(open_fp)?;
-    let decrypted_data = secure::decrypt_data_formatted(&pwd, &data)?;
+    let decrypted_data = secure::decrypt_data_formatted(&pwd, &data)
+        .map_err(|_| anyhow!("Failed to decrypt file. Wrong password?"))?;
 
     let cmd = process::Command::new("vipe")
         .stdin(process::Stdio::piped())
