@@ -1,6 +1,6 @@
 # Secure Edit
 
-![UI Showcase](https://github.com/Sean-McConnachie/secure-edit/images/ui.png)
+![UI Showcase](images/ui.png)
 
 - Files encrypted with [AES-512 algorithm](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard)
 - Passwords hashed with [PBKDF2](https://en.wikipedia.org/wiki/PBKDF2)
@@ -18,4 +18,4 @@
 
 `secure-edit --help` for more info.
 
-![Filesystem Showcase](https://github.com/Sean-McConnachie/secure-edit/images/fs.png)
+![Filesystem Showcase](images/fs.png)
