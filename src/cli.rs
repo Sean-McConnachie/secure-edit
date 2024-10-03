@@ -15,7 +15,7 @@ pub struct Args {
     pub dir: Option<PathBuf>,
 }
 
-fn user_input(message: &str, align: Option<usize>) -> Result<String> {
+fn user_input(message: &str, align: Option<usize>, sensitive: bool) -> Result<String> {
     use std::io::{self, Write};
     print!("{message}");
     if let Some(pad) = align {
@@ -24,7 +24,11 @@ fn user_input(message: &str, align: Option<usize>) -> Result<String> {
     print!("{}", " > ".blink().purple());
     io::stdout().flush()?;
     let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
+    if sensitive {
+        input = rpassword::read_password()?;
+    } else {
+        io::stdin().read_line(&mut input)?;
+    }
     Ok(input.trim().to_string())
 }
 
@@ -32,6 +36,7 @@ fn should_proceed(message: &str) -> Result<bool> {
     Ok(user_input(
         &format!("{} ({}/{})", message, "y".green(), "n".red()),
         None,
+        false,
     )?
     .trim()
     .to_lowercase()
@@ -126,8 +131,16 @@ fn create_secure_file(dir: &PathBuf) -> Result<Version> {
     );
     let version = 0;
     let secure_fp = secure_file_fp(dir, version);
-    let pwd1 = user_input(&format!("{}", "Enter password".blue().bold()), Some(3))?;
-    let pwd2 = user_input(&format!("{}", "Re-enter password".blue().bold()), None)?;
+    let pwd1 = user_input(
+        &format!("{}", "Enter password".blue().bold()),
+        Some(3),
+        true,
+    )?;
+    let pwd2 = user_input(
+        &format!("{}", "Re-enter password".blue().bold()),
+        None,
+        true,
+    )?;
     if pwd1 != pwd2 {
         return Err(anyhow!("Passwords do not match"));
     }
@@ -144,7 +157,7 @@ fn edit_secure_file(open_fp: &PathBuf, write_fp: &PathBuf) -> Result<()> {
         "Opening secure file".green(),
         open_fp.display().to_string().italic()
     );
-    let pwd = user_input(&format!("{}", "Enter password".blue().bold()), None)?;
+    let pwd = user_input(&format!("{}", "Enter password".blue().bold()), None, true)?;
     let data = fs::read(open_fp)?;
     let decrypted_data = secure::decrypt_data_formatted(&pwd, &data)?;
 
